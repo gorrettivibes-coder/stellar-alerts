@@ -15,7 +15,9 @@ import {
   PaymentTable,
   ActivityHeatmap,
   EmailTemplatePreview,
+  SankeyFlowDiagram,
   type EmailTemplateConfig,
+  type PathPaymentFlow,
 } from '@/components/dashboard';
 import {
   useAlertPreferences,
@@ -264,6 +266,11 @@ export default function DashboardPage() {
                 }}
               />
             ),
+          },
+          {
+            id: 'sankey-flows',
+            label: 'Multi-Hop Payment Flows',
+            content: <SankeyFlowDiagram flows={pathPaymentFlows} />,
           },
         ]}
       />
