@@ -15,7 +15,9 @@ import {
   PaymentTable,
   ActivityHeatmap,
   EmailTemplatePreview,
+  SankeyFlowDiagram,
   type EmailTemplateConfig,
+  type PathPaymentFlow,
 } from '@/components/dashboard';
 import {
   useAlertPreferences,
@@ -31,30 +33,26 @@ export default function DashboardPage() {
   const [crossLedgerAnalytics] = useState<any>(null);
   const [isStreamConnected, setIsStreamConnected] = useState<boolean>(false);
   const [latestDelivery, setLatestDelivery] = useState<DeliveryEventDTO | null>(null);
-  const {
-    data: wallets = [],
-    error: walletError,
-    mutate: mutateWallets,
-    removeWallet,
-  } = useWallets();
-  const {
-    data: payments = [],
-    error: paymentError,
-    isLoading: isLoadingPayments,
-    mutate: mutatePayments,
-    addPayment,
-  } = usePayments(selectedWalletId ? { walletId: selectedWalletId } : undefined);
-  const {
-    data: summary,
-    error: summaryError,
-    mutate: mutateSummary,
-  } = usePaymentSummary();
-  const { updateAlertPreferences } = useAlertPreferences();
-  const totalVolumeXLM = summary?.totalVolumeXLM ?? 0;
-  const totalPaymentsCount = summary?.totalPayments ?? 0;
-  const dashboardError = walletError ?? paymentError ?? summaryError;
-  const paymentsRef = useRef(payments);
-  const addPaymentRef = useRef(addPayment);
+  // Multi-hop path payment routes. The ingestion worker does not yet record
+  // path_payment_* offer chains, so this stays empty until a path-flows feed
+  // is available; the Sankey card renders its own empty state meanwhile.
+  const [pathPaymentFlows] = useState<PathPaymentFlow[]>([]);
+
+  const fetchDashboardData = useCallback(async () => {
+    if (!session) return;
+    setIsLoadingPayments(true);
+    try {
+      const data = await batchReader.fetchUserPortfolioBatched(selectedWalletId || undefined);
+      setWallets(data.wallets);
+      setPayments(data.payments);
+      setTotalVolumeXLM(Number(data.summary.totalVolumeXLM || 0));
+      setTotalPaymentsCount(Number(data.summary.totalPayments || 0));
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  }, [session, selectedWalletId, batchReader]);
 
   useEffect(() => {
     paymentsRef.current = payments;
@@ -264,6 +262,11 @@ export default function DashboardPage() {
                 }}
               />
             ),
+          },
+          {
+            id: 'sankey-flows',
+            label: 'Multi-Hop Payment Flows',
+            content: <SankeyFlowDiagram flows={pathPaymentFlows} />,
           },
         ]}
       />
